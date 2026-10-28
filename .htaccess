@@ -1,0 +1,7 @@
+# Запрет просмотра содержимого папок
+Options -Indexes
+
+# Блокировка доступа к config.php и скрытым файлам (.git, .env)
+<FilesMatch "^(config\.php|\..*)$">
+    Require all denied
+</FilesMatch>

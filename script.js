@@ -2,18 +2,15 @@
 const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
-  tg.expand(); // Раскрываем на весь экран
+  tg.expand();
 }
 
-// Твои данные из BotFather и userinfobot
-
-// Получаем имя пользователя из Telegram
+// Данные пользователя используются ТОЛЬКО для приветствия в интерфейсе
 const user = tg?.initDataUnsafe?.user;
 const userName = user ? user.first_name || user.username : "Гость";
-const userHandle = user?.username ? `@${user.username}` : "нет юзернейма";
 document.getElementById("user-greeting").innerText = `Привет, ${userName}!`;
 
-// База товаров
+// Витрина товаров для отображения (эталонные цены проверяются на сервере в config.php)
 const products = [
   {
     id: 1,
@@ -42,6 +39,14 @@ const products = [
 ];
 
 let cart = {};
+let isSubmitting = false; // Флаг защиты от двойного нажатия
+
+// Безопасное экранирование текста при рендере на клиенте
+function escapeClientHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
 
 // Отрисовка товаров
 function renderProducts() {
@@ -51,16 +56,16 @@ function renderProducts() {
       (p) => `
         <div class="col-6">
           <div class="card h-100">
-            <img src="${p.img}" class="card-img-top" alt="${p.name}">
+            <img src="${encodeURI(p.img)}" class="card-img-top" alt="${escapeClientHtml(p.name)}" loading="lazy">
             <div class="card-body p-2 d-flex flex-column justify-content-between">
               <div>
-                <h6 class="card-title fs-6 mb-1">${p.name}</h6>
-                <div class="fw-bold mb-2">${p.price} ₽</div>
+                <h6 class="card-title fs-6 mb-1">${escapeClientHtml(p.name)}</h6>
+                <div class="fw-bold mb-2">${Number(p.price)} ₽</div>
               </div>
               <div class="d-flex align-items-center justify-content-between">
-                <button class="btn btn-sm btn-outline-secondary" onclick="changeQty(${p.id}, -1)">-</button>
-                <span class="fw-bold" id="qty-${p.id}">0</span>
-                <button class="btn btn-sm btn-outline-primary" onclick="changeQty(${p.id}, 1)">+</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="changeQty(${Number(p.id)}, -1)">-</button>
+                <span class="fw-bold" id="qty-${Number(p.id)}">0</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="changeQty(${Number(p.id)}, 1)">+</button>
               </div>
             </div>
           </div>
@@ -72,20 +77,30 @@ function renderProducts() {
 
 // Логика корзины
 function changeQty(productId, delta) {
-  cart[productId] = (cart[productId] || 0) + delta;
-  if (cart[productId] <= 0) delete cart[productId];
+  if (isSubmitting) return;
 
-  document.getElementById(`qty-${productId}`).innerText = cart[productId] || 0;
+  const nextQty = (cart[productId] || 0) + delta;
+  if (nextQty <= 0) {
+    delete cart[productId];
+  } else if (nextQty <= 50) {
+    cart[productId] = nextQty;
+  }
+
+  const qtyEl = document.getElementById(`qty-${productId}`);
+  if (qtyEl) qtyEl.innerText = cart[productId] || 0;
   updateTotal();
 }
 
 function updateTotal() {
   let total = 0;
   let count = 0;
+
   for (const [id, qty] of Object.entries(cart)) {
-    const product = products.find((p) => p.id == id);
-    total += product.price * qty;
-    count += qty;
+    const product = products.find((p) => p.id === Number(id));
+    if (product) {
+      total += product.price * qty;
+      count += qty;
+    }
   }
 
   document.getElementById("total-price").innerText = `${total} ₽`;
@@ -100,44 +115,58 @@ function updateTotal() {
   }
 }
 
-// Отправка заказа в Telegram
+// Уведомление пользователя с учетом версии Telegram WebApp
+function notifyUser(message, closeAfter = false) {
+  if (tg && tg.isVersionAtLeast && tg.isVersionAtLeast("6.2")) {
+    tg.showAlert(message, () => {
+      if (closeAfter) tg.close();
+    });
+  } else {
+    alert(message);
+    if (closeAfter && tg) tg.close();
+  }
+}
+
+// Отправка заказа на защищенный серверный обработчик send.php
 async function submitOrder() {
+  if (isSubmitting || Object.keys(cart).length === 0) return;
+
+  isSubmitting = true;
   const orderBtn = document.getElementById("order-btn");
   orderBtn.disabled = true;
-  orderBtn.innerText = "Отправка...";
+  orderBtn.innerText = "Проверка и отправка...";
 
   try {
-    // Отправляем данные на наш защищенный серверный скрипт /api/order
-    const response = await fetch("/api/order", {
+    const response = await fetch("send.php", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
       body: JSON.stringify({
-        cart: cart,
-        user: tg?.initDataUnsafe?.user || null,
-        initData: tg?.initData || "", // Цифровая подпись от Telegram
+        cart: cart, // Только ID и количество
+        initData: tg?.initData || "", // Криптографическая подпись Telegram
+        hp_field: "", // Поле-ловушка (Honeypot) от спам-ботов
       }),
     });
 
     const result = await response.json();
 
     if (response.ok && result.ok) {
-      if (tg && tg.isVersionAtLeast && tg.isVersionAtLeast("6.2")) {
-        tg.showAlert("Заказ успешно отправлен менеджеру!", () => {
-          tg.close();
-        });
-      } else {
-        alert("Заказ успешно отправлен менеджеру!");
-        if (tg) tg.close();
-      }
+      cart = {};
+      updateTotal();
+      notifyUser("Заказ успешно отправлен менеджеру!", true);
     } else {
-      alert(result.error || "Ошибка при отправке заказа.");
+      notifyUser(result.error || "Ошибка при отправке заказа.");
       orderBtn.disabled = false;
       orderBtn.innerText = "Попробовать снова";
     }
   } catch (err) {
-    alert("Ошибка сети.");
+    notifyUser("Ошибка сети. Проверьте подключение к интернету.");
     orderBtn.disabled = false;
     orderBtn.innerText = "Попробовать снова";
+  } finally {
+    isSubmitting = false;
   }
 }
 
