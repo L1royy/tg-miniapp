@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>Street Food Mini App</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Скрипт Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      body {
+        background-color: var(--tg-theme-bg-color, #f8f9fa);
+        color: var(--tg-theme-text-color, #212529);
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        padding-bottom: 90px;
+      }
+      .card {
+        border: none;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        background-color: var(--tg-theme-secondary-bg-color, #ffffff);
+      }
+      .card-img-top {
+        height: 140px;
+        object-fit: cover;
+      }
+      .fixed-bottom-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: var(--tg-theme-bg-color, #ffffff);
+        border-top: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 12px 16px;
+        z-index: 1000;
+      }
+      .btn-tg {
+        background-color: var(--tg-theme-button-color, #2481cc);
+        color: var(--tg-theme-button-text-color, #ffffff);
+        border-radius: 12px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container py-3">
+      <!-- Шапка профиля -->
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+          <h5 class="mb-0 fw-bold">Street Food</h5>
+          <small class="text-muted" id="user-greeting"
+            >Загрузка профиля...</small
+          >
+        </div>
+        <span class="badge bg-danger rounded-pill px-3 py-2">Скидка 10%</span>
+      </div>
+
+      <!-- Список товаров -->
+      <div class="row g-3" id="products-list">
+        <!-- Карточки генерируются скриптом -->
+      </div>
+    </div>
+
+    <!-- Плавающая панель с кнопкой заказа -->
+    <div class="fixed-bottom-bar">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="fw-semibold">Итого:</span>
+        <span class="fs-5 fw-bold" id="total-price">0 ₽</span>
+      </div>
+      <button
+        class="btn btn-tg w-100 py-2"
+        id="order-btn"
+        disabled
+        onclick="submitOrder()"
+      >
+        Выберите блюда
+      </button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
