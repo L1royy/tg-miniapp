@@ -7,7 +7,6 @@ if (tg) {
 
 // Твои данные из BotFather и userinfobot
 
-
 // Получаем имя пользователя из Telegram
 const user = tg?.initDataUnsafe?.user;
 const userName = user ? user.first_name || user.username : "Гость";
@@ -107,55 +106,38 @@ async function submitOrder() {
   orderBtn.disabled = true;
   orderBtn.innerText = "Отправка...";
 
-  let itemsText = "";
-  let total = 0;
-
-  for (const [id, qty] of Object.entries(cart)) {
-    const product = products.find((p) => p.id == id);
-    itemsText += `• ${product.name} × ${qty} шт. = ${product.price * qty} ₽\n`;
-    total += product.price * qty;
-  }
-
-  const message =
-    `🛍 <b>Новый заказ из Mini App!</b>\n\n` +
-    `👤 <b>Клиент:</b> ${userName} (${userHandle})\n` +
-    `🆔 <b>User ID:</b> <code>${user?.id || "неизвестно"}</code>\n\n` +
-    `📦 <b>Состав заказа:</b>\n${itemsText}\n` +
-    `💰 <b>Итого к оплате:</b> ${total} ₽`;
-
   try {
-    const response = await fetch(
-      `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: ADMIN_CHAT_ID,
-          text: message,
-          parse_mode: "HTML",
-        }),
-      },
-    );
+    // Отправляем данные на наш защищенный серверный скрипт /api/order
+    const response = await fetch("/api/order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cart: cart,
+        user: tg?.initDataUnsafe?.user || null,
+        initData: tg?.initData || "", // Цифровая подпись от Telegram
+      }),
+    });
 
-    if (response.ok) {
-      // Проверяем, поддерживает ли Telegram встроенные попапы (версия 6.2+)
+    const result = await response.json();
+
+    if (response.ok && result.ok) {
       if (tg && tg.isVersionAtLeast && tg.isVersionAtLeast("6.2")) {
         tg.showAlert("Заказ успешно отправлен менеджеру!", () => {
           tg.close();
         });
       } else {
-        // Если версия старая (6.0), используем обычный браузерный alert
         alert("Заказ успешно отправлен менеджеру!");
         if (tg) tg.close();
       }
     } else {
-      alert("Ошибка отправки. Проверьте токен.");
+      alert(result.error || "Ошибка при отправке заказа.");
       orderBtn.disabled = false;
       orderBtn.innerText = "Попробовать снова";
     }
   } catch (err) {
     alert("Ошибка сети.");
     orderBtn.disabled = false;
+    orderBtn.innerText = "Попробовать снова";
   }
 }
 
