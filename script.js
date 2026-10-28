@@ -139,11 +139,15 @@ async function submitOrder() {
     );
 
     if (response.ok) {
-      if (tg) {
-        tg.showAlert("Заказ успешно отправлен менеджеру!");
-        tg.close(); // Закрываем Mini App
+      // Проверяем, поддерживает ли Telegram встроенные попапы (версия 6.2+)
+      if (tg && tg.isVersionAtLeast && tg.isVersionAtLeast("6.2")) {
+        tg.showAlert("Заказ успешно отправлен менеджеру!", () => {
+          tg.close();
+        });
       } else {
-        alert("Заказ отправлен!");
+        // Если версия старая (6.0), используем обычный браузерный alert
+        alert("Заказ успешно отправлен менеджеру!");
+        if (tg) tg.close();
       }
     } else {
       alert("Ошибка отправки. Проверьте токен.");
