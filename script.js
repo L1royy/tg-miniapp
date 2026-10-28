@@ -6,8 +6,7 @@ if (tg) {
 }
 
 // Твои данные из BotFather и userinfobot
-const BOT_TOKEN = "9155152123:AAFsCgBUPUmDme1Q0gMguk0DeDuHRgd9hHU";
-const ADMIN_CHAT_ID = "1828928977";
+
 
 // Получаем имя пользователя из Telegram
 const user = tg?.initDataUnsafe?.user;
